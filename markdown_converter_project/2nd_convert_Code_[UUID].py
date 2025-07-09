@@ -43,17 +43,32 @@ for article in articles:
     fields = article.get("fields", {}) or {}
     title = (fields.get("Title") or "").strip()
     body = (fields.get("Body") or "").strip()
-    shortcode = (fields.get("ShortCode") or "").strip()
+    code_field = (fields.get("ShortCode") or "").strip()
     uuid = (article.get("uuid") or "").strip()
 
     if not title or not body or not uuid:
         continue
 
-    if not shortcode:
-        shortcode = extract_code_from_body(body)
+    code_body = extract_code_from_body(body)
+    final_code = ""
+    inject_code_into_body = False
 
-    is_nocode = not bool(shortcode)
-    filename_base = f"{shortcode}-[{uuid}]" if shortcode else f"NoCode-[{uuid}]"
+    if code_field and code_body:
+        if code_field != code_body:
+            final_code = code_body  # Case 2
+        else:
+            final_code = code_field  # Case 1
+    elif not code_body and code_field:
+        final_code = code_field  # Case 3
+        inject_code_into_body = True
+    else:
+        final_code = ""  # Case 4
+
+    if inject_code_into_body:
+        body += f"<div><strong>Code: {final_code}</strong></div>"
+
+    is_nocode = not bool(final_code)
+    filename_base = f"{final_code}-[{uuid}]" if final_code else f"NoCode-[{uuid}]"
     filename_base = sanitize_filename(filename_base)
 
     html_output = html_dir if not is_nocode else html_nocode_dir
@@ -83,8 +98,4 @@ for article in articles:
 
     count += 1
 
-print(f"✅ {count} articles exported using ShortCode-[UUID] or NoCode-[UUID].")
-print(f"📁 HTML with code: {html_dir}")
-print(f"📁 HTML without code: {html_nocode_dir}")
-print(f"📁 Markdown with code: {md_dir}")
-print(f"📁 Markdown without code: {md_nocode_dir}")
+print(f"✅ {count} articles exported using 4-level code priority logic.")
