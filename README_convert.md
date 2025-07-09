@@ -36,6 +36,7 @@ Install dependencies with:
 
 ```bash
 pip install html2text
+pip install beautifulsoup4
 ```
 
 ---
