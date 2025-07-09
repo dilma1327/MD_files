@@ -5,10 +5,9 @@ import html2text
 from bs4 import BeautifulSoup
 
 json_path = "input/KB_V1_ForProcessing.json"
-html_dir = "output/html"
-md_dir = "output/markdown"
-html_nocode_dir = "output/html_nocode"
-md_nocode_dir = "output/markdown_nocode"
+html_dir = "output/html"                 # All HTML files go here
+md_dir = "output/markdown"               # Markdown with code
+md_nocode_dir = "output/markdown_nocode" # Markdown without code
 
 def sanitize_filename(name):
     return re.sub(r'[\\/*?:"<>|]', "_", name.strip())
@@ -25,7 +24,6 @@ def extract_code_from_body(html):
 
 os.makedirs(html_dir, exist_ok=True)
 os.makedirs(md_dir, exist_ok=True)
-os.makedirs(html_nocode_dir, exist_ok=True)
 os.makedirs(md_nocode_dir, exist_ok=True)
 
 with open(json_path, "r", encoding="utf-8") as f:
@@ -55,14 +53,14 @@ for article in articles:
 
     if code_field and code_body:
         if code_field != code_body:
-            final_code = code_body  # Case 2
+            final_code = code_body
         else:
-            final_code = code_field  # Case 1
+            final_code = code_field
     elif not code_body and code_field:
-        final_code = code_field  # Case 3
+        final_code = code_field
         inject_code_into_body = True
     else:
-        final_code = ""  # Case 4
+        final_code = ""
 
     if inject_code_into_body:
         body += f"<div><strong>Code: {final_code}</strong></div>"
@@ -71,12 +69,10 @@ for article in articles:
     filename_base = f"{final_code}-[{uuid}]" if final_code else f"NoCode-[{uuid}]"
     filename_base = sanitize_filename(filename_base)
 
-    html_output = html_dir if not is_nocode else html_nocode_dir
-    md_output = md_dir if not is_nocode else md_nocode_dir
-
     html_filename = filename_base + ".html"
     md_filename = filename_base + ".md"
 
+    # Save all HTMLs to one folder
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -88,14 +84,16 @@ for article in articles:
 {body}
 </body>
 </html>"""
-    with open(os.path.join(html_output, html_filename), "w", encoding="utf-8") as f:
+    with open(os.path.join(html_dir, html_filename), "w", encoding="utf-8") as f:
         f.write(html_content)
 
+    # Markdown is grouped based on code presence
     clean_body = remove_h1_tags(body)
     markdown = f"# {title}\n\n" + converter.handle(clean_body)
-    with open(os.path.join(md_output, md_filename), "w", encoding="utf-8") as f:
+    md_output_path = md_dir if not is_nocode else md_nocode_dir
+    with open(os.path.join(md_output_path, md_filename), "w", encoding="utf-8") as f:
         f.write(markdown)
 
     count += 1
 
-print(f"✅ {count} articles exported using 4-level code priority logic.")
+print(f"✅ {count} articles processed. HTMLs saved to single folder, Markdown split by code.")
