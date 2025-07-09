@@ -7,6 +7,8 @@ from bs4 import BeautifulSoup
 json_path = "input/KB_V1_ForProcessing.json"
 html_dir = "output/html"
 md_dir = "output/markdown"
+html_nocode_dir = "output/html_nocode"
+md_nocode_dir = "output/markdown_nocode"
 
 def sanitize_filename(name):
     return re.sub(r'[\\/*?:"<>|]', "_", name.strip())
@@ -23,6 +25,8 @@ def extract_code_from_body(html):
 
 os.makedirs(html_dir, exist_ok=True)
 os.makedirs(md_dir, exist_ok=True)
+os.makedirs(html_nocode_dir, exist_ok=True)
+os.makedirs(md_nocode_dir, exist_ok=True)
 
 with open(json_path, "r", encoding="utf-8") as f:
     data = json.load(f)
@@ -48,8 +52,12 @@ for article in articles:
     if not shortcode:
         shortcode = extract_code_from_body(body)
 
-    filename_base = f"{shortcode}-[{uuid}]" if shortcode else uuid
+    is_nocode = not bool(shortcode)
+    filename_base = f"{shortcode}-[{uuid}]" if shortcode else f"NoCode-[{uuid}]"
     filename_base = sanitize_filename(filename_base)
+
+    html_output = html_dir if not is_nocode else html_nocode_dir
+    md_output = md_dir if not is_nocode else md_nocode_dir
 
     html_filename = filename_base + ".html"
     md_filename = filename_base + ".md"
@@ -65,16 +73,18 @@ for article in articles:
 {body}
 </body>
 </html>"""
-    with open(os.path.join(html_dir, html_filename), "w", encoding="utf-8") as f:
+    with open(os.path.join(html_output, html_filename), "w", encoding="utf-8") as f:
         f.write(html_content)
 
     clean_body = remove_h1_tags(body)
     markdown = f"# {title}\n\n" + converter.handle(clean_body)
-    with open(os.path.join(md_dir, md_filename), "w", encoding="utf-8") as f:
+    with open(os.path.join(md_output, md_filename), "w", encoding="utf-8") as f:
         f.write(markdown)
 
     count += 1
 
-print(f"✅ {count} articles exported using ShortCode-[UUID] or UUID.")
-print(f"📁 HTML: {html_dir}")
-print(f"📁 Markdown: {md_dir}")
+print(f"✅ {count} articles exported using ShortCode-[UUID] or NoCode-[UUID].")
+print(f"📁 HTML with code: {html_dir}")
+print(f"📁 HTML without code: {html_nocode_dir}")
+print(f"📁 Markdown with code: {md_dir}")
+print(f"📁 Markdown without code: {md_nocode_dir}")
