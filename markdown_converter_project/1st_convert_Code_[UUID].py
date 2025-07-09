@@ -4,7 +4,6 @@ import re
 import html2text
 from bs4 import BeautifulSoup
 
-# === CONFIGURATION ===
 json_path = "input/articles_data.json"
 html_dir = "output/html"
 md_dir = "output/markdown"
@@ -23,18 +22,15 @@ def extract_code_from_body(html):
     match = re.search(r"Code:\s*([A-Z0-9_-]+)", html)
     return match.group(1).strip() if match else ""
 
-# === CREATE FOLDERS ===
 os.makedirs(html_dir, exist_ok=True)
 os.makedirs(md_dir, exist_ok=True)
 os.makedirs(md_nocode_dir, exist_ok=True)
 
-# === LOAD JSON ===
 with open(json_path, "r", encoding="utf-8") as f:
     data = json.load(f)
 
 articles = data.get("data", {}).get("KnowledgeBaseArticlesV2", [])
 
-# === INIT MARKDOWN CONVERTER ===
 converter = html2text.HTML2Text()
 converter.ignore_links = False
 converter.ignore_images = False
@@ -51,31 +47,38 @@ for article in articles:
     if not title or not body or not uuid:
         continue
 
-    # === Code logic ===
     code_body = extract_code_from_body(body)
-    final_code = ""
-    inject_code_into_body = False
+    inject_code_inline = False
 
     if code_field and code_body:
         final_code = code_body if code_body != code_field else code_field
     elif code_field:
         final_code = code_field
-        inject_code_into_body = True
+        inject_code_inline = True
     elif code_body:
         final_code = code_body
     else:
         final_code = ""
 
-    # === Inject Code tag into body if needed ===
-    if inject_code_into_body:
-        body += f"<div><strong>Code: {final_code}</strong></div>"
+    # Inject code into 'Last Modified:' line if needed
+    if inject_code_inline and final_code:
+        soup = BeautifulSoup(body, "html.parser")
+        inserted = False
+        for tag in soup.find_all(["p", "div", "span"]):
+            if "Last Modified:" in tag.get_text():
+                tag.string = tag.get_text().strip() + f" | Code: {final_code}"
+                inserted = True
+                break
+        if inserted:
+            body = str(soup)
+        else:
+            body = f"<p><em>Code: {final_code}</em></p>\n" + body
 
     filename_base = f"{final_code}-[{uuid}]" if final_code else f"NoCode-[{uuid}]"
     filename_base = sanitize_filename(filename_base)
     html_filename = filename_base + ".html"
     md_filename = filename_base + ".md"
 
-    # === WRITE HTML ===
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -90,7 +93,6 @@ for article in articles:
     with open(os.path.join(html_dir, html_filename), "w", encoding="utf-8") as f:
         f.write(html_content)
 
-    # === CONVERT TO MARKDOWN ===
     clean_body = remove_h1_tags(body)
     markdown = f"# {title}\n\n" + converter.handle(clean_body)
     md_output = md_dir if final_code else md_nocode_dir
